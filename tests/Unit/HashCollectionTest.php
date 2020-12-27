@@ -268,7 +268,6 @@ class HashCollectionTest extends AbstractTestCase
         $this->assertEquals(10, $counter);
     }
 
-
     public function testGetAllReverse() {
         $collection = HashCollectionFactory::createFilledHashCollection(10);
         $counter = 10;
@@ -277,6 +276,21 @@ class HashCollectionTest extends AbstractTestCase
             $counter--;
         }
         $this->assertEquals(0, $counter);
+    }
+
+    public function testRehash() {
+        $collection = HashCollectionFactory::createFilledHashCollection(10);
+        $collection->reHash(5, 500);
+        $counter = 0;
+        foreach($collection->yieldAll() as $hash => $item) {
+            $counter++;
+            if($counter == 5) {
+                $this->assertEquals(500, $hash);
+            } else {
+                $this->assertEquals($counter, $hash);
+            }
+        }
+        $this->assertEquals(10, $counter);
     }
 
 }
