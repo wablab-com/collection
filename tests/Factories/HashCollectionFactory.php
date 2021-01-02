@@ -3,13 +3,12 @@
 namespace Tests\Factories;
 
 use Faker\Factory;
-use WabLab\Collection\HashCollection;
-
+use WabLab\Collection\HashedLinkedListCollection;
 
 class HashCollectionFactory
 {
-    public static function createFilledHashCollection($recordsCount):HashCollection {
-        $collection = new HashCollection();
+    public static function createFilledHashCollection($recordsCount):HashedLinkedListCollection {
+        $collection = new HashedLinkedListCollection();
         for($id = 1; $id <= $recordsCount; $id++) {
             $faker = Factory::create();
             $collection->insert($id, [
@@ -25,8 +24,8 @@ class HashCollectionFactory
     }
 
 
-    public static function createEmptyHashCollection():HashCollection {
-        return new HashCollection();
+    public static function createEmptyHashCollection():HashedLinkedListCollection {
+        return new HashedLinkedListCollection();
     }
 
 }

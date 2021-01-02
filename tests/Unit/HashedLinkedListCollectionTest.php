@@ -8,7 +8,7 @@ use Tests\Factories\HashCollectionFactory;
 use WabLab\Collection\Exception\HashKeyAlreadyExists;
 use WabLab\Collection\Exception\HashKeyDoesNotExists;
 
-class HashCollectionTest extends AbstractTestCase
+class HashedLinkedListCollectionTest extends AbstractTestCase
 {
 
     public function testInsertNewRecords() {
@@ -257,30 +257,9 @@ class HashCollectionTest extends AbstractTestCase
         $this->assertEquals(0, $counter);
     }
 
-
-    public function testGetAll() {
-        $collection = HashCollectionFactory::createFilledHashCollection(10);
-        $counter = 0;
-        foreach($collection->all() as $hash => $item) {
-            $counter++;
-            $this->assertEquals($counter, $hash);
-        }
-        $this->assertEquals(10, $counter);
-    }
-
-    public function testGetAllReverse() {
-        $collection = HashCollectionFactory::createFilledHashCollection(10);
-        $counter = 10;
-        foreach($collection->reverseAll() as $hash => $item) {
-            $this->assertEquals($counter, $hash);
-            $counter--;
-        }
-        $this->assertEquals(0, $counter);
-    }
-
     public function testRehash() {
         $collection = HashCollectionFactory::createFilledHashCollection(10);
-        $collection->reHash(5, 500);
+        $this->assertTrue($collection->reHash(5, 500));
         $counter = 0;
         foreach($collection->yieldAll() as $hash => $item) {
             $counter++;
@@ -291,6 +270,14 @@ class HashCollectionTest extends AbstractTestCase
             }
         }
         $this->assertEquals(10, $counter);
+
+        $this->assertFalse($collection->reHash('invalid hash', 'anything'));
+    }
+
+    public function testIsset() {
+        $collection = HashCollectionFactory::createFilledHashCollection(10);
+        $this->assertTrue($collection->isset(5));
+        $this->assertFalse($collection->isset('invalid key'));
     }
 
 }
