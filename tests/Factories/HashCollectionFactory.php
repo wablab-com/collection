@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Factories;
+namespace WabLab\Tests\Factories;
 
 use Faker\Factory;
 use WabLab\Collection\HashedLinkedListCollection;
@@ -22,7 +22,6 @@ class HashCollectionFactory
         }
         return $collection;
     }
-
 
     public static function createEmptyHashCollection():HashedLinkedListCollection {
         return new HashedLinkedListCollection();

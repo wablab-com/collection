@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\Unit;
+namespace WabLab\Tests\Unit;
 
 use PHPUnit\Runner\Exception;
-use Tests\AbstractTestCase;
-use Tests\Factories\HashCollectionFactory;
+use WabLab\Tests\AbstractTestCase;
+use WabLab\Tests\Factories\HashCollectionFactory;
 use WabLab\Collection\Exception\HashKeyAlreadyExists;
 use WabLab\Collection\Exception\HashKeyDoesNotExists;
 

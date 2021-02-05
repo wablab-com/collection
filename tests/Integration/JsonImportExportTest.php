@@ -1,12 +1,9 @@
 <?php
 
-namespace Tests\Unit;
+namespace WabLab\Tests\Unit;
 
-use PHPUnit\Runner\Exception;
-use Tests\AbstractTestCase;
-use Tests\Factories\HashCollectionFactory;
-use WabLab\Collection\Exception\HashKeyAlreadyExists;
-use WabLab\Collection\Exception\HashKeyDoesNotExists;
+use WabLab\Tests\AbstractTestCase;
+use WabLab\Tests\Factories\HashCollectionFactory;
 use WabLab\Collection\Exporter\ArrayExporter;
 use WabLab\Collection\Exporter\JsonFileExporter;
 use WabLab\Collection\Exporter\JsonStringExporter;

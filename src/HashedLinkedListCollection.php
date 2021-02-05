@@ -113,15 +113,19 @@ class HashedLinkedListCollection implements IHashCollection
     }
 
     public function reHash(string $fromHash, string $toHash):bool {
+        return $this->rootHashLinkedList->rehashRight($fromHash, $toHash);
+        /*
         if($this->rootHashLinkedList->issetRight($fromHash)) {
             $node = $this->rootHashLinkedList->getRight($fromHash);
             $this->rootHashLinkedList->unsetRight($fromHash);
 
             $node->setHash($toHash);
             $this->rootHashLinkedList->setRight($node);
+
             return true;
         }
         return false;
+        */
     }
 
 
