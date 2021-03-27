@@ -2,6 +2,13 @@
 
 namespace WabLab\Collection\Contracts;
 
+/**
+ * Interface IHashCollection
+ * @package WabLab\Collection\Contracts
+ * TODO: insert after / before entry
+ * TODO: add insertPosition flag to the insert/updateOrInsert function, the default is LAST
+ */
+
 interface IHashCollection
 {
 

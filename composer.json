@@ -9,7 +9,7 @@
     ],
     "require": {
         "php": "^8.0",
-        "wablab-com/hashed-linked-list": "^0.0"
+        "wablab-com/hashed-linked-list": "^0.1"
     },
     "autoload": {
         "psr-4": {
