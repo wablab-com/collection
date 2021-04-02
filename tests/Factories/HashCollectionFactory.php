@@ -11,7 +11,7 @@ class HashCollectionFactory
         $collection = new HashedLinkedListCollection();
         for($id = 1; $id <= $recordsCount; $id++) {
             $faker = Factory::create();
-            $collection->insert($id, [
+            $collection->insertLast($id, [
                 'id' => $id,
                 'first_name' => $faker->firstName,
                 'last_name' => $faker->lastName,

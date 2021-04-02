@@ -5,6 +5,7 @@ namespace WabLab\Collection;
 use WabLab\Collection\Contracts\IHashCollection;
 use WabLab\Collection\Exception\HashKeyAlreadyExists;
 use WabLab\Collection\Exception\HashKeyDoesNotExists;
+use WabLab\Collection\Exception\HashKeysMustNotBeMatched;
 use WabLab\HashedLinkedList\Node;
 
 class HashedLinkedListCollection implements IHashCollection
@@ -32,7 +33,16 @@ class HashedLinkedListCollection implements IHashCollection
     //
     // LEVEL 0
     //
-    public function insert(string $hash, $data, bool $ignoreIfExists = false): bool
+    public function insertFirst(string $hash, $data, bool $ignoreIfExists = false): bool
+    {
+        if($this->firstNode) {
+            return $this->insertBefore($this->firstHash(), $hash, $data, false, $ignoreIfExists);
+        } else {
+            return $this->insertLast($hash, $data, $ignoreIfExists);
+        }
+    }
+    
+    public function insertLast(string $hash, $data, bool $ignoreIfExists = false): bool
     {
         if ($this->assertNodeHashNotExists($hash, !$ignoreIfExists)) {
             $node = $this->createNewUnlinkedNode($hash, $data);
@@ -43,9 +53,9 @@ class HashedLinkedListCollection implements IHashCollection
         return false;
     }
 
-    public function insertAfter(string $afterHash, string $newHash, $data, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHasExists = false)
+    public function insertAfter(string $afterHash, string $newHash, $data, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
     {
-        if ($this->assertNodeHashExists($afterHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashNotExists($newHash, !$ignoreIfNewHasExists)) {
+        if ($this->assertNodeHashExists($afterHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashNotExists($newHash, !$ignoreIfNewHashExists)) {
             $node = $this->createNewUnlinkedNode($newHash, $data);
             $afterNode = $this->getNodeByHash($afterHash);
             $this->setNodeAfterAnother($afterNode, $node);
@@ -54,9 +64,9 @@ class HashedLinkedListCollection implements IHashCollection
         return false;
     }
 
-    public function insertBefore(string $beforeHash, string $newHash, $data, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHasExists = false)
+    public function insertBefore(string $beforeHash, string $newHash, $data, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
     {
-        if ($this->assertNodeHashExists($beforeHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashNotExists($newHash, !$ignoreIfNewHasExists)) {
+        if ($this->assertNodeHashExists($beforeHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashNotExists($newHash, !$ignoreIfNewHashExists)) {
             $node = $this->createNewUnlinkedNode($newHash, $data);
             $beforeNode = $this->getNodeByHash($beforeHash);
             $this->setNodeBeforeAnother($beforeNode, $node);
@@ -65,9 +75,20 @@ class HashedLinkedListCollection implements IHashCollection
         return false;
     }
 
-    public function moveAfter(string $afterHash, string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHasExists = false)
+    public function moveFirst(string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
     {
-        if ($this->assertNodeHashExists($afterHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashExists($hashToMove, !$ignoreIfNewHasExists)) {
+        return $this->moveBefore($this->firstHash(), $hashToMove, $ignoreIfFirstNotExists, $ignoreIfNewHashExists);
+    }
+
+    public function moveLast(string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
+    {
+        return $this->moveAfter($this->lastHash(), $hashToMove, $ignoreIfFirstNotExists, $ignoreIfNewHashExists);
+    }
+
+    public function moveAfter(string $afterHash, string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
+    {
+        $this->assertHashesDoesNotMatched($afterHash, $hashToMove);
+        if ($this->assertNodeHashExists($afterHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashExists($hashToMove, !$ignoreIfNewHashExists)) {
             $node = $this->getNodeByHash($hashToMove);
             $this->freeNodeFromBetweenNodes($node);
             $afterNode = $this->getNodeByHash($afterHash);
@@ -77,9 +98,10 @@ class HashedLinkedListCollection implements IHashCollection
         return false;
     }
 
-    public function moveBefore(string $beforeHash, string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHasExists = false)
+    public function moveBefore(string $beforeHash, string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
     {
-        if ($this->assertNodeHashExists($beforeHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashExists($hashToMove, !$ignoreIfNewHasExists)) {
+        $this->assertHashesDoesNotMatched($beforeHash, $hashToMove);
+        if ($this->assertNodeHashExists($beforeHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashExists($hashToMove, !$ignoreIfNewHashExists)) {
             $node = $this->getNodeByHash($hashToMove);
             $this->freeNodeFromBetweenNodes($node);
             $beforeNode = $this->getNodeByHash($beforeHash);
@@ -104,7 +126,7 @@ class HashedLinkedListCollection implements IHashCollection
         if ($this->assertNodeHashExists($hash, false)) {
             return $this->update($hash, $data);
         } else {
-            return $this->insert($hash, $data);
+            return $this->insertLast($hash, $data);
         }
     }
 
@@ -152,6 +174,27 @@ class HashedLinkedListCollection implements IHashCollection
     {
         $node = $this->rootHashLinkedList->right()->get($hash);
         return $node ? $node->getPayload() : null;
+    }
+
+    public function offset(int $index, ?string &$hash = null)
+    {
+        $hash = $this->offsetHash($index);
+        return $hash ? $this->find($hash) : null;
+    }
+
+    public function offsetHash(int $index): ?string
+    {
+        if($index >= $this->count()) {
+            return null;
+        }
+
+        $seeker = 0;
+        foreach($this->yieldAll() as $key => $payload) {
+            if($seeker == $index) {
+                return $key;
+            }
+            $seeker++;
+        }
     }
 
     public function isset(string $hash): bool
@@ -364,6 +407,13 @@ class HashedLinkedListCollection implements IHashCollection
             $this->setNodeBetweenNodes($leftNode, $beforeNode, $node);
         } else {
             $this->makeItFirstNode($node);
+        }
+    }
+
+    private function assertHashesDoesNotMatched(string $hash1, string $hash2)
+    {
+        if($hash1 == $hash2) {
+            throw new HashKeysMustNotBeMatched();
         }
     }
 
