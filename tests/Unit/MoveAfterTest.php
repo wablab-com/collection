@@ -3,6 +3,7 @@
 namespace WabLab\Tests\Unit;
 
 use PHPUnit\Runner\Exception;
+use WabLab\Collection\Exception\HashKeysMustNotBeMatched;
 use WabLab\Tests\AbstractTestCase;
 use WabLab\Tests\Factories\HashCollectionFactory;
 use WabLab\Collection\Exception\HashKeyAlreadyExists;
@@ -61,7 +62,8 @@ class MoveAfterTest extends AbstractTestCase
         }
     }
 
-    public function testMoveAfterInvalidHash_ThrowException() {
+    public function testMoveAfterInvalidHash_ThrowException()
+    {
         try {
             $collection = HashCollectionFactory::createFilledHashCollection(1);
             $collection->moveAfter('invalid hash', 'new hash');
@@ -71,11 +73,22 @@ class MoveAfterTest extends AbstractTestCase
         }
     }
 
-    public function testMoveAfterInvalidHash_DontThrowException() {
-
+    public function testMoveAfterInvalidHash_DontThrowException()
+    {
         $collection = HashCollectionFactory::createFilledHashCollection(1);
         $result = $collection->moveAfter('invalid hash', 'new hash', true,true);
         $this->assertFalse($result);
+    }
+
+    public function testMoveAfterSameHash()
+    {
+        $collection = HashCollectionFactory::createFilledHashCollection(1);
+        try {
+            $collection->moveAfter('1', '1', true,true);
+            throw new \Exception('invalid error');
+        } catch (\Throwable $exception) {
+            $this->assertInstanceOf(HashKeysMustNotBeMatched::class, $exception);
+        }
     }
 
 

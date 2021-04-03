@@ -56,8 +56,16 @@ interface IHashCollection
 
     public function count():int;
 
-    public function yieldAll();
+    /**
+     * @return \Generator
+     */
+    public function yieldAll(?string $initialHash = null);
 
-    public function reverseYieldAll();
+    /**
+     * @return \Generator
+     */
+    public function reverseYieldAll(?string $initialHash = null);
+
+    public function seeker(?string $initHash = null):IHashCollectionSeeker;
 
 }

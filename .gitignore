@@ -1,3 +1,6 @@
 /vendor/
 /coverage-html/
 composer.lock
+.idea/
+.phpunit.result.cache
+phpunit.xml.bak

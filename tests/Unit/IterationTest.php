@@ -28,4 +28,24 @@ class IterationTest extends AbstractTestCase
         $this->assertEquals(0, $counter);
     }
 
+    public function testYieldAll_InitHash() {
+        $collection = HashCollectionFactory::createFilledHashCollection(10);
+        $counter = 4;
+        foreach($collection->yieldAll(5) as $hash => $item) {
+            $counter++;
+            $this->assertEquals($counter, $hash);
+        }
+        $this->assertEquals(10, $counter);
+    }
+
+    public function testYieldAllReverse_InitHash() {
+        $collection = HashCollectionFactory::createFilledHashCollection(10);
+        $counter = 5;
+        foreach($collection->reverseYieldAll(5) as $hash => $item) {
+            $this->assertEquals($counter, $hash);
+            $counter--;
+        }
+        $this->assertEquals(0, $counter);
+    }
+
 }

@@ -3,6 +3,7 @@
 namespace WabLab\Collection;
 
 use WabLab\Collection\Contracts\IHashCollection;
+use WabLab\Collection\Contracts\IHashCollectionSeeker;
 use WabLab\Collection\Exception\HashKeyAlreadyExists;
 use WabLab\Collection\Exception\HashKeyDoesNotExists;
 use WabLab\Collection\Exception\HashKeysMustNotBeMatched;
@@ -19,6 +20,11 @@ class HashedLinkedListCollection implements IHashCollection
      * @var Node
      */
     protected ?Node $firstNode = null;
+
+    /**
+     * @var IHashCollectionSeeker
+     */
+    protected ?IHashCollectionSeeker $seeker = null;
 
     /**
      * @var Node
@@ -184,17 +190,16 @@ class HashedLinkedListCollection implements IHashCollection
 
     public function offsetHash(int $index): ?string
     {
-        if($index >= $this->count()) {
-            return null;
-        }
-
-        $seeker = 0;
-        foreach($this->yieldAll() as $key => $payload) {
-            if($seeker == $index) {
-                return $key;
+        if($index < $this->count()) {
+            $seeker = 0;
+            foreach ($this->yieldAll() as $key => $payload) {
+                if ($seeker == $index) {
+                    return $key;
+                }
+                $seeker++;
             }
-            $seeker++;
         }
+        return null;
     }
 
     public function isset(string $hash): bool
@@ -244,25 +249,52 @@ class HashedLinkedListCollection implements IHashCollection
     /**
      * @return \Generator
      */
-    public function yieldAll()
+    public function yieldAll(?string $initialHash = null)
     {
-        $current = $this->firstNode;
+        if($initialHash) {
+            $current = $this->rootHashLinkedList->right()->get($initialHash);
+        } else {
+            $current = $this->firstNode;
+        }
+
         while ($current) {
             yield $current->getHash() => $current->getPayload();
             $current = $current->right()->first();
         }
+
+        return null;
     }
 
     /**
      * @return \Generator
      */
-    public function reverseYieldAll()
+    public function reverseYieldAll(?string $initialHash = null)
     {
-        $current = $this->lastNode;
+        if($initialHash) {
+            $current = $this->rootHashLinkedList->right()->get($initialHash);
+        } else {
+            $current = $this->lastNode;
+        }
+
         while ($current) {
             yield $current->getHash() => $current->getPayload();
             $current = $current->left()->first();
         }
+
+        return null;
+    }
+
+    public function seeker(?string $initHash = null): IHashCollectionSeeker
+    {
+        if(!$this->seeker) {
+            $this->seeker = new HashedCollectionSeeker($this);
+        }
+
+        if($initHash) {
+            $this->seeker->current($initHash);
+        }
+
+        return $this->seeker;
     }
 
     //
