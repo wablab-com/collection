@@ -7,18 +7,17 @@ use WabLab\Collection\Contracts\IHashCollectionSeeker;
 use WabLab\Collection\Exception\HashKeyAlreadyExists;
 use WabLab\Collection\Exception\HashKeyDoesNotExists;
 use WabLab\Collection\Exception\HashKeysMustNotBeMatched;
-use WabLab\HashedLinkedList\Node;
+use WabLab\DoublyLinkedList\Helpers\FreeingNode;
+use WabLab\DoublyLinkedList\Helpers\SettingNodeAfter;
+use WabLab\DoublyLinkedList\Helpers\SettingNodeBefore;
+use WabLab\HashedTree\NodeTree;
+use WabLab\HashedTree\Node;
 
 class HashedLinkedListCollection implements IHashCollection
 {
-    /**
-     * @var Node
-     */
-    protected Node $rootHashLinkedList;
 
-    /**
-     * @var Node
-     */
+    protected NodeTree $rootNodeTree;
+
     protected ?Node $firstNode = null;
 
     /**
@@ -26,14 +25,11 @@ class HashedLinkedListCollection implements IHashCollection
      */
     protected ?IHashCollectionSeeker $seeker = null;
 
-    /**
-     * @var Node
-     */
     protected ?Node $lastNode = null;
 
     public function __construct()
     {
-        $this->rootHashLinkedList = new Node('root', null);
+        $this->rootNodeTree = new NodeTree('root', null);
     }
 
     //
@@ -41,19 +37,29 @@ class HashedLinkedListCollection implements IHashCollection
     //
     public function insertFirst(string $hash, $data, bool $ignoreIfExists = false): bool
     {
-        if($this->firstNode) {
-            return $this->insertBefore($this->firstHash(), $hash, $data, false, $ignoreIfExists);
-        } else {
-            return $this->insertLast($hash, $data, $ignoreIfExists);
+        if ($this->assertNodeHashNotExists($hash, !$ignoreIfExists)) {
+            $node = $this->createNewUnlinkedNode($hash, $data);
+            if($this->firstNode) {
+                SettingNodeBefore::process($node, $this->firstNode);
+            } else {
+                $this->lastNode = $node;
+            }
+            $this->firstNode = $node;
+            return true;
         }
+        return false;
     }
     
     public function insertLast(string $hash, $data, bool $ignoreIfExists = false): bool
     {
         if ($this->assertNodeHashNotExists($hash, !$ignoreIfExists)) {
             $node = $this->createNewUnlinkedNode($hash, $data);
-            $this->makeItAFirstNodeIfTheSetIsEmpty($node);
-            $this->makeItLastNode($node);
+            if($this->lastNode) {
+                SettingNodeAfter::process($this->lastNode, $node);
+            } else {
+                $this->firstNode = $node;
+            }
+            $this->lastNode = $node;
             return true;
         }
         return false;
@@ -81,14 +87,23 @@ class HashedLinkedListCollection implements IHashCollection
         return false;
     }
 
+
     public function moveFirst(string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
     {
-        return $this->moveBefore($this->firstHash(), $hashToMove, $ignoreIfFirstNotExists, $ignoreIfNewHashExists);
+        try {
+            return $this->moveBefore($this->firstHash(), $hashToMove, $ignoreIfFirstNotExists, $ignoreIfNewHashExists);
+        } catch (HashKeysMustNotBeMatched $exception) {
+            return false;
+        }
     }
 
     public function moveLast(string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
     {
-        return $this->moveAfter($this->lastHash(), $hashToMove, $ignoreIfFirstNotExists, $ignoreIfNewHashExists);
+        try {
+            return $this->moveAfter($this->lastHash(), $hashToMove, $ignoreIfFirstNotExists, $ignoreIfNewHashExists);
+        } catch (HashKeysMustNotBeMatched $exception) {
+            return false;
+        }
     }
 
     public function moveAfter(string $afterHash, string $hashToMove, bool $ignoreIfFirstNotExists = false, bool $ignoreIfNewHashExists = false):bool
@@ -96,8 +111,8 @@ class HashedLinkedListCollection implements IHashCollection
         $this->assertHashesDoesNotMatched($afterHash, $hashToMove);
         if ($this->assertNodeHashExists($afterHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashExists($hashToMove, !$ignoreIfNewHashExists)) {
             $node = $this->getNodeByHash($hashToMove);
-            $this->freeNodeFromBetweenNodes($node);
             $afterNode = $this->getNodeByHash($afterHash);
+            $this->freeNode($node);
             $this->setNodeAfterAnother($afterNode, $node);
             return true;
         }
@@ -109,8 +124,8 @@ class HashedLinkedListCollection implements IHashCollection
         $this->assertHashesDoesNotMatched($beforeHash, $hashToMove);
         if ($this->assertNodeHashExists($beforeHash, !$ignoreIfFirstNotExists) && $this->assertNodeHashExists($hashToMove, !$ignoreIfNewHashExists)) {
             $node = $this->getNodeByHash($hashToMove);
-            $this->freeNodeFromBetweenNodes($node);
             $beforeNode = $this->getNodeByHash($beforeHash);
+            $this->freeNode($node);
             $this->setNodeBeforeAnother($beforeNode, $node);
             return true;
         }
@@ -140,9 +155,8 @@ class HashedLinkedListCollection implements IHashCollection
     {
         if ($this->assertNodeHashExists($hash, !$ignoreIfNotExists)) {
             $node = $this->getNodeByHash($hash);
-            $this->adjustIfTheFirstNodeDeleted($node);
-            $this->adjustIfTheLastNodeDeleted($node);
-            $this->deleteNodeThenConnectLeftsAndRights($node);
+            $this->freeNode($node);
+            $this->rootNodeTree->removeChild($node->getHash());
             return true;
         }
         return false;
@@ -172,13 +186,17 @@ class HashedLinkedListCollection implements IHashCollection
 
     public function reHash(string $fromHash, string $toHash): bool
     {
-        return $this->rootHashLinkedList->right()->rehash($fromHash, $toHash);
+        $node = $this->getNodeByHash($fromHash);
+        if($node) {
+            return $this->rootNodeTree->rehashChild($fromHash, $toHash);
+        }
+        return false;
     }
 
 
     public function find(string $hash)
     {
-        $node = $this->rootHashLinkedList->right()->get($hash);
+        $node = $this->getNodeByHash($hash);
         return $node ? $node->getPayload() : null;
     }
 
@@ -192,9 +210,9 @@ class HashedLinkedListCollection implements IHashCollection
     {
         if($index < $this->count()) {
             $seeker = 0;
-            foreach ($this->yieldAll() as $key => $payload) {
+            foreach ($this->rootNodeTree->yieldChildren() as $child) {
                 if ($seeker == $index) {
-                    return $key;
+                    return $child->getHash();
                 }
                 $seeker++;
             }
@@ -204,7 +222,7 @@ class HashedLinkedListCollection implements IHashCollection
 
     public function isset(string $hash): bool
     {
-        return $this->rootHashLinkedList->right()->isset($hash);
+        return $this->rootNodeTree->isChildExists($hash);
     }
 
     public function first(?string &$hash = null)
@@ -243,7 +261,7 @@ class HashedLinkedListCollection implements IHashCollection
 
     public function count(): int
     {
-        return $this->rootHashLinkedList->right()->count();
+        return $this->rootNodeTree->getChildrenCount();
     }
 
     /**
@@ -252,14 +270,14 @@ class HashedLinkedListCollection implements IHashCollection
     public function yieldAll(?string $initialHash = null)
     {
         if($initialHash) {
-            $current = $this->rootHashLinkedList->right()->get($initialHash);
+            $current = $this->getNodeByHash($initialHash);
         } else {
             $current = $this->firstNode;
         }
 
         while ($current) {
             yield $current->getHash() => $current->getPayload();
-            $current = $current->right()->first();
+            $current = $current->getRight();
         }
 
         return null;
@@ -271,14 +289,14 @@ class HashedLinkedListCollection implements IHashCollection
     public function reverseYieldAll(?string $initialHash = null)
     {
         if($initialHash) {
-            $current = $this->rootHashLinkedList->right()->get($initialHash);
+            $current = $this->getNodeByHash($initialHash);
         } else {
             $current = $this->lastNode;
         }
 
         while ($current) {
             yield $current->getHash() => $current->getPayload();
-            $current = $current->left()->first();
+            $current = $current->getLeft();
         }
 
         return null;
@@ -302,7 +320,7 @@ class HashedLinkedListCollection implements IHashCollection
     //
     protected function assertNodeHashNotExists(string $hash, bool $throwException = true): bool
     {
-        if ($this->rootHashLinkedList->right()->isset($hash)) {
+        if ($this->rootNodeTree->isChildExists($hash)) {
             if ($throwException) {
                 throw new HashKeyAlreadyExists();
             }
@@ -311,46 +329,9 @@ class HashedLinkedListCollection implements IHashCollection
         return true;
     }
 
-    protected function makeItLastNode(Node $node): void
-    {
-        if($node->right()->first()) {
-            throw new \Exception('Node already linked with a right one.');
-        }
-
-        if ($this->lastNode && $node->getHash() != $this->lastNode->getHash()) {
-            Node::chainNodes($this->lastNode, $node);
-        }
-        $this->lastNode = $node;
-    }
-
-    protected function makeItFirstNode(Node $node): void
-    {
-        if($node->left()->first()) {
-            throw new \Exception('Node already linked with a left one.');
-        }
-        if ($this->firstNode && $node->getHash() != $this->firstNode->getHash()) {
-            Node::chainNodes($node, $this->firstNode);
-        }
-        $this->firstNode = $node;
-    }
-
-    protected function makeItAFirstNodeIfTheSetIsEmpty(Node $node): void
-    {
-        if (!$this->firstNode) {
-            $this->firstNode = $node;
-        }
-    }
-
-    protected function createNewUnlinkedNode(string $hash, $data): Node
-    {
-        $node = new Node($hash, $data);
-        $this->rootHashLinkedList->right()->set($node);
-        return $node;
-    }
-
     protected function assertNodeHashExists(string $hash, bool $throwException = true): bool
     {
-        if (!$this->rootHashLinkedList->right()->isset($hash)) {
+        if (!$this->rootNodeTree->isChildExists($hash)) {
             if ($throwException) {
                 throw new HashKeyDoesNotExists();
             }
@@ -359,94 +340,58 @@ class HashedLinkedListCollection implements IHashCollection
         return true;
     }
 
-    protected function setNodePayload(string $hash, $data): bool
-    {
-        return $this->rootHashLinkedList->right()->get($hash)->setPayload($data);
-    }
-
-    protected function adjustIfTheFirstNodeDeleted(?Node $node): void
-    {
-        if ($this->firstNode && $this->firstNode->getHash() == $node->getHash()) {
-            $this->firstNode = $node->right()->first();
-        }
-    }
-
-    protected function adjustIfTheLastNodeDeleted(?Node $node): void
-    {
-        if ($this->lastNode && $this->lastNode->getHash() == $node->getHash()) {
-            $this->lastNode = $node->left()->first();
-        }
-    }
-
-    protected function deleteNodeThenConnectLeftsAndRights(?Node $node): void
-    {
-        $this->rootHashLinkedList->right()->unset($node->getHash());
-        $node->delete(Node::DELETE_STRATEGY_MERGE);
-    }
-
-
-    protected function getNodeByHash(string $hash): ?Node
-    {
-        return $this->rootHashLinkedList->right()->get($hash);
-    }
-
-    protected function setNodeBetweenNodes(Node $leftNode, Node $rightNode, Node $node): void
-    {
-        $rightNode->left()->unset($leftNode->getHash());
-        $leftNode->right()->unset($rightNode->getHash());
-        Node::chainNodes($leftNode, $node);
-        Node::chainNodes($node, $rightNode);
-    }
-
-    protected function freeNodeFromBetweenNodes(Node $node): void
-    {
-        $leftNode = $node->left()->first();
-        if($leftNode) {
-            $leftNode->right()->unset($node->getHash());
-            $node->left()->unset($leftNode->getHash());
-        }
-
-        $rightNode = $node->right()->first();
-        if($rightNode) {
-            $rightNode->left()->unset($node->getHash());
-            $node->right()->unset($rightNode->getHash());
-        }
-
-        if($leftNode && $rightNode) {
-            Node::chainNodes($leftNode, $rightNode);
-        } elseif($leftNode) {
-            $this->lastNode = $leftNode;
-        } elseif($rightNode) {
-            $this->firstNode = $rightNode;
-        }
-
-    }
-
-    protected function setNodeAfterAnother(Node $afterNode, Node $node): void
-    {
-        $rightNode = $afterNode->right()->first();
-        if ($rightNode) {
-            $this->setNodeBetweenNodes($afterNode, $rightNode, $node);
-        } else {
-            $this->makeItLastNode($node);
-        }
-    }
-
-    protected function setNodeBeforeAnother(?Node $beforeNode, Node $node): void
-    {
-        $leftNode = $beforeNode->left()->first();
-        if ($leftNode) {
-            $this->setNodeBetweenNodes($leftNode, $beforeNode, $node);
-        } else {
-            $this->makeItFirstNode($node);
-        }
-    }
-
-    private function assertHashesDoesNotMatched(string $hash1, string $hash2)
+    protected function assertHashesDoesNotMatched(string $hash1, string $hash2)
     {
         if($hash1 == $hash2) {
             throw new HashKeysMustNotBeMatched();
         }
+    }
+
+    protected function createNewUnlinkedNode(string $hash, $data): Node
+    {
+        $node = new Node($hash, $data);
+        $this->rootNodeTree->setChild($node);
+        return $node;
+    }
+
+
+    protected function setNodePayload(string $hash, $data)
+    {
+        $this->rootNodeTree->getChild($hash)->setPayload($data);
+    }
+
+    protected function getNodeByHash(string $hash): ?Node
+    {
+        return $this->rootNodeTree->getChild($hash);
+    }
+
+    protected function setNodeAfterAnother(Node $afterNode, Node $node): void
+    {
+        if($afterNode->isLast()) {
+            $this->lastNode = $node;
+        }
+        SettingNodeAfter::process($afterNode, $node);
+    }
+
+    protected function setNodeBeforeAnother(?Node $beforeNode, Node $node): void
+    {
+        if ($beforeNode->isFirst()) {
+            $this->firstNode = $node;
+        }
+        SettingNodeBefore::process($node, $beforeNode);
+    }
+
+    protected function freeNode(?Node $node)
+    {
+        if($node->isLast()) {
+            $this->lastNode = $node->getLeft();
+        }
+
+        if($node->isFirst()) {
+            $this->firstNode = $node->getRight();
+        }
+
+        FreeingNode::process($node);
     }
 
 }

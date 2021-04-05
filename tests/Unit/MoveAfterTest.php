@@ -35,7 +35,7 @@ class MoveAfterTest extends AbstractTestCase
         $this->assertEquals(10, $collection->lastHash());
 
         // move first to the last
-        $collection->moveAfter($collection->lastHash(),$collection->firstHash());
+        $collection->moveAfter($collection->lastHash(), $collection->firstHash());
         $this->assertEquals(10,$collection->count());
         $this->assertEquals(2, $collection->firstHash());
         $this->assertEquals(1, $collection->lastHash());

@@ -15,6 +15,7 @@ class InsertBeforeTest extends AbstractTestCase
         $this->assertEquals(10, $collection->count());
         $collection->insertBefore(6, 'new hash', 'new hash data');
         $this->assertEquals(11, $collection->count());
+
         $counter = 0;
         foreach($collection->yieldAll() as $hash => $value) {
             $counter++;
